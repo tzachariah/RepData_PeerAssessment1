@@ -1,25 +1,119 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Reproducible Research Course Project 1"
+author: "Thomas Zachariah"
+date: "6/9/2017"
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("~/Desktop/5ReproducibleResearch")
+```
 
-## Loading and preprocessing the data
+####1. Code for Loading and examining the data
+The data is downloaed into the current working directory
+
+```{r, echo = TRUE}
+setwd("~/Desktop/5ReproducibleResearch")
+suppressMessages(library(plyr))
+suppressMessages(library(dplyr))
+#name of data file: pamdd (personal activity monitoring device data)
+pamdd <- read.csv("activity.csv", header = TRUE, sep = ",")
+names(pamdd)
+dim(pamdd)
+head(pamdd)
+str(pamdd)
+summary(pamdd)
+```
+
+####2. Histogram of the total number of steps taken each day
+
+```{r, echo=TRUE}
+#calculating the number of steps taken
+steps <- pamdd %>% filter(!is.na(steps)) %>% group_by(date) %>% summarize(steps = sum(steps)) %>% print
+#drawigh the histogram
+library(ggplot2)
+ggplot(steps, aes(x = steps)) +
+geom_histogram(fill = "purple", color=rgb(.8,.5,.9), binwidth = 2000) +
+labs(title = "Total Number of Steps Taken Each Day", x = "Total Steps", y = "Frequency")
+```
+
+####3. Mean and median number of steps taken each day
+
+```{r, echo=TRUE}
+paste("mean number of steps =", mean(steps$steps, na.rm = TRUE))
+paste("median number of steps = ", median(steps$steps, na.rm = TRUE))
+```
+
+####4. Time series plot of the average number of steps taken
+```{r, echo=TRUE}
+TSdata <- pamdd %>% filter(!is.na(steps)) %>% group_by(interval) %>% summarize(steps = mean(steps))
+ggplot(TSdata, aes(x=interval, y=steps)) + geom_line(color = "red") + labs(title = "Time series plot of the average number of steps taken", x = "Interval", y = "Number of Steps")
+```
+###5. The 5-minute interval that, on average, contains the maximum number of steps
+
+```{r, echo=TRUE}
+TSdata[which.max(TSdata$steps),]
+```
+####6. Code to describe and show a strategy for imputing missing data
+(i) Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with 𝙽𝙰s)
+(ii) Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.
+(iii) Create a new dataset that is equal to the original dataset but with the missing data filled in.
+(iv) Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
 
 
+```{r, echo=TRUE}
+# (i)
+sum(is.na(pamdd$steps))
+```
+(ii) Creating a new data set by replacing "NA" by the average number of steps in the same 5-min interval
+```{r, echo=TRUE}
+new_data <- pamdd 
+nas <- is.na(new_data$steps)
+avg_interval <- tapply(new_data$steps,new_data$interval, mean, na.rm=TRUE, simplify=TRUE)
+new_data$steps[nas] <- avg_interval[as.character(new_data$interval[nas])]
+#Checking the missing values
+sum(is.na(new_data$steps))
+```
+```{r}
+new_pamdd <- na.omit(pamdd) # original data with "NA" omitted
+dim(new_pamdd); head(new_pamdd)
+dim(new_data); head(new_data) # original data with "NA" replaced
+```
 
-## What is mean total number of steps taken per day?
+(iii) Calculating the number of steps taken in each 5-minute interval per day 
+```{r, echo=TRUE}
+new_steps <- new_data %>%
+  filter(!is.na(steps)) %>%
+  group_by(date) %>%
+  summarize(steps = sum(steps)) %>%
+  print
+```
 
+(iv) Make a histogram, calculate mean, median, etc.
+```{r, echo=TRUE}
+ggplot(new_steps, aes(x = steps)) +
+  geom_histogram(fill = rgb(.8,.7,.5),color="purple", binwidth = 2000) +
+  labs(title = "Histogram of the total number of steps taken each day\n(NA by the average number)", x = "Steps per day", y = "Frequency")
+mean_new_steps <- mean(new_steps$steps, na.rm = TRUE); print("mean of new_steps ="); mean_new_steps
+median_new_steps <- median(new_steps$steps, na.rm = TRUE); print("median of new_steps ="); median_new_steps
+```
 
+Are there differences in activity patterns between weekdays and weekends?
 
-## What is the average daily activity pattern?
+#####7. Making a panel plot containing a time series plot (i.e. 𝚝𝚢𝚙𝚎 = "𝚕") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis)
 
+```{r, echo=TRUE}
+suppressMessages(library(Hmisc))
+Sys.setlocale("LC_TIME", locale = "")
+new_data$weekdays <- weekdays(as.Date(new_data$date))
+new_data$weekdays <- ifelse(new_data$weekdays %in% c("Saturday", "Sunday"),"weekend", "weekday")
+average <- ddply(new_data, .(interval, weekdays), summarise, steps=mean(steps))
+#creating the plot
+library(lattice)
+xyplot(steps ~ interval | weekdays, data = average, layout = c(1, 2), type="l", xlab = "Interval", ylab = "Number of steps")
 
+```
 
-## Imputing missing values
+library(lattice)
+xyplot(steps ~ interval | weekdays, data = average, layout = c(1, 2), type="l", xlab = "Interval", ylab = "Number of steps")
 
-
-
-## Are there differences in activity patterns between weekdays and weekends?
